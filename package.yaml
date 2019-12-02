@@ -33,4 +33,12 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
-
+  day2:
+    main:                Main.hs
+    source-dirs:         Day2
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+      - containers
