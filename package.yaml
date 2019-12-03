@@ -43,3 +43,13 @@ executables:
     dependencies:
       - array
       - text
+  day3:
+    main:                Main.hs
+    source-dirs:         Day3
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+      - containers
+      - text
