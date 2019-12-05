@@ -23,6 +23,7 @@ dependencies:
 - base >= 4.7 && < 5
 - array
 - text
+- mtl
 
 library:
   source-dirs: src
@@ -65,3 +66,12 @@ executables:
     dependencies:
       - containers
       - text
+  day5:
+    main:                Main.hs
+    source-dirs:         Day5
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+      - advent2019
