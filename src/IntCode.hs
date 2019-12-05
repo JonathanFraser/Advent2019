@@ -21,6 +21,9 @@ getPC = do
             (i,m,o) <- get 
             return $ counter m 
 
+setPC :: Int -> Operation () 
+setPC v = modify (\(i,m,o) -> (i,m {counter = v},o))
+
 readValue :: ParameterMode -> Int -> Operation Int 
 readValue Immediate loc = do 
                             (i,m,o) <- get
@@ -71,6 +74,12 @@ add = p3 (+) False
 mul :: Modes -> Operation Bool 
 mul = p3 (*) False 
 
+lt :: Modes -> Operation Bool 
+lt = p3 (\x y -> if x < y then 1 else 0) False
+
+eq :: Modes -> Operation Bool 
+eq = p3 (\x y -> if x == y then 1 else 0) False
+
 inputOp :: ParameterMode -> Operation Bool
 inputOp m = do 
                 i <- readInput 
@@ -114,6 +123,22 @@ step = do
                     inputOp m1 
                 4 -> 
                     outputOp m2
+                5 -> 
+                    do 
+                        p1 <- readAdvance m1
+                        p2 <- readAdvance m2 
+                        if p1 /= 0 then setPC p2 else return () 
+                        return False 
+                6 ->
+                    do 
+                        p1 <- readAdvance m1
+                        p2 <- readAdvance m2 
+                        if p1 == 0 then setPC p2 else return () 
+                        return False 
+                7 ->
+                    lt m
+                8 -> 
+                    eq m 
                 99 ->
                     return True 
                 r -> 
