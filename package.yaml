@@ -21,9 +21,11 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
+- array
+- text
 
-#library:
-#  source-dirs: src
+library:
+  source-dirs: src
 
 executables:
   day1:
@@ -42,7 +44,7 @@ executables:
     - -with-rtsopts=-N
     dependencies:
       - array
-      - text
+      - advent2019
   day3:
     main:                Main.hs
     source-dirs:         Day3
