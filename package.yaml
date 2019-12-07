@@ -84,3 +84,12 @@ executables:
     - -with-rtsopts=-N
     dependencies:
       - containers
+  day7:
+    main:                Main.hs
+    source-dirs:         Day7
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+      - advent2019
