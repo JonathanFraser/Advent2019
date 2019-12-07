@@ -9,12 +9,16 @@ import Control.Monad.Except
 
 data Machine = Machine {counter::Int, memory::Array Int Int} deriving Show
 data ParameterMode = Position | Immediate deriving (Eq,Show)
+data StatusCode = Running | Waiting | Complete deriving (Eq,Show)
 
-type Operation a = StateT ([Int],Machine,[Int]) (Either String) a
+type Operation a = StateT ([Int],Machine,[Int]) (Either String)  a
 type Modes = (ParameterMode,ParameterMode,ParameterMode)
 
 incPC :: Operation ()
 incPC = modify (\(i,m,o) -> (i,m {counter = 1 + counter m},o))
+
+decPC :: Operation ()
+decPC = modify (\(i,m,o) -> (i,m {counter = -1 + counter m},o))
 
 getPC :: Operation Int
 getPC = do 
@@ -35,13 +39,13 @@ readValue Position loc = do
 readAdvance :: ParameterMode -> Operation Int 
 readAdvance mode = do pc <- getPC;v <- readValue mode pc; incPC; return v 
 
-readInput :: Operation Int 
+readInput :: Operation (Maybe Int) 
 readInput = do 
                 (i,m,o) <- get
                 case i of 
                     ip:is -> 
-                        do put (is,m,o);return ip 
-                    _ -> do pc <- getPC; throwError ("input unavailable "++(show pc))
+                        do put (is,m,o);return $ Just ip 
+                    [] -> return Nothing
 
 writeOutput :: Int -> Operation () 
 writeOutput v = do 
@@ -60,7 +64,7 @@ writeValue Immediate loc val = do
 writeAdvance :: ParameterMode -> Int -> Operation () 
 writeAdvance mode val = do pc <- getPC;writeValue mode pc val;incPC 
 
-p3 :: (Int -> Int -> Int) -> Bool -> Modes -> Operation Bool 
+p3 :: (Int -> Int -> Int) -> StatusCode -> Modes -> Operation StatusCode 
 p3 fnc term (m1,m2,m3) = do 
                         v1 <- readAdvance m1 
                         v2 <- readAdvance m2
@@ -68,29 +72,30 @@ p3 fnc term (m1,m2,m3) = do
                         writeAdvance m3 (fnc v1 v2) 
                         return term 
 
-add :: Modes -> Operation Bool 
-add = p3 (+) False 
+add :: Modes -> Operation StatusCode 
+add = p3 (+) Running
 
-mul :: Modes -> Operation Bool 
-mul = p3 (*) False 
+mul :: Modes -> Operation StatusCode 
+mul = p3 (*) Running 
 
-lt :: Modes -> Operation Bool 
-lt = p3 (\x y -> if x < y then 1 else 0) False
+lt :: Modes -> Operation StatusCode 
+lt = p3 (\x y -> if x < y then 1 else 0) Running
 
-eq :: Modes -> Operation Bool 
-eq = p3 (\x y -> if x == y then 1 else 0) False
+eq :: Modes -> Operation StatusCode 
+eq = p3 (\x y -> if x == y then 1 else 0) Running
 
-inputOp :: ParameterMode -> Operation Bool
+inputOp :: ParameterMode -> Operation StatusCode
 inputOp m = do 
                 i <- readInput 
-                writeAdvance m i 
-                return False 
+                case i of 
+                    Just d -> do writeAdvance m d;return Running
+                    Nothing -> do decPC;return Waiting
 
-outputOp :: ParameterMode -> Operation Bool
+outputOp :: ParameterMode -> Operation StatusCode
 outputOp m = do 
              v <- readAdvance m 
              writeOutput v 
-             return False
+             return Running
 
 decodeMode :: Int -> Operation ParameterMode 
 decodeMode v = case v of 
@@ -110,7 +115,7 @@ stripModes v = do
                 m3 <- decodeMode $ mod (quot v 10000) 10
                 return ((m1,m2,m3),op)
 
-step :: Operation Bool 
+step :: Operation StatusCode 
 step = do 
              intr <- readAdvance Immediate
              (m@(m1,m2,m3),op) <- stripModes intr 
@@ -128,39 +133,38 @@ step = do
                         p1 <- readAdvance m1
                         p2 <- readAdvance m2 
                         if p1 /= 0 then setPC p2 else return () 
-                        return False 
+                        return Running 
                 6 ->
                     do 
                         p1 <- readAdvance m1
                         p2 <- readAdvance m2 
                         if p1 == 0 then setPC p2 else return () 
-                        return False 
+                        return Running 
                 7 ->
                     lt m
                 8 -> 
                     eq m 
                 99 ->
-                    return True 
+                    do decPC;return Complete 
                 r -> 
                     do 
                         pc <- getPC 
                         throwError ("unknown opcode "++(show r)++"at location"++(show (pc-1)))
 
-run :: Operation () 
+run :: Operation StatusCode
 run = do 
-        r <- step 
-        if r then 
-            return ()
-        else 
-            run 
+        r <- step
+        case r of 
+            Complete ->  return Complete
+            Waiting -> return Waiting 
+            Running -> run 
 
 execute :: [Int] -> Machine -> Operation a -> Either String (a,Machine,[Int])
 execute inputs initial ops = do 
                                 let sinit = (inputs,initial,[])
                                 (result, sfinal) <- runStateT ops sinit
                                 let (unusedInput,final,outputs) = sfinal
-                                return (result,final,outputs)
-
+                                return (result,final,reverse outputs)
 
 
 result :: Operation Int 
