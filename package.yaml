@@ -93,3 +93,14 @@ executables:
     - -with-rtsopts=-N
     dependencies:
       - advent2019
+  day8:
+    main:                Main.hs
+    source-dirs:         Day8
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+      - advent2019
+      - text
+      - containers
