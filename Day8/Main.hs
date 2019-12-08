@@ -23,21 +23,24 @@ mergefunc 1 _ = 1
 mergefunc 2 x = x
 
 scan :: (Int,Int) -> [(Int,Int)]
-scan (w,0) = []
-scan (w,h) = (fmap (\x -> (x,0)) [0..w-1])++rem where 
-                                    rem = fmap (\(w,h) -> (w,h+1)) $ scan (w,h-1)
+scan (w,h) = do 
+                a <- [0..h-1]
+                b <- [0..w-1]
+                return (b,a)
+
 
 procfunc :: (Int,Int) -> [Int] -> Map (Int,Int) Int 
 procfunc dim l = Map.fromList $ zip (scan dim) l
 
 
-display :: (Int,Int) -> Map (Int,Int) Int -> String 
+display ::(Int,Int) -> Map (Int,Int) Char -> String 
 display (w,h) d = do
-                    let swap = fmap (\x -> if x == 0 then ' ' else '*') d 
                     hp <- [0..h-1]
-                    let withs = [0..(w-1)]
-                    let v = fmap ((Map.!) swap) $ zip withs (repeat hp) :: [Char]
+                    let v = do 
+                                wp <- [0..(w-1)]
+                                return $ (Map.!) d (wp,hp)
                     (v++"\n")
+
 
 main = do 
             f <- readFile "Day8/input.txt"
@@ -46,4 +49,5 @@ main = do
             print $ snd $ head $sortOn (fst) r 
             let maps = processImage (procfunc (25,6)) (25*6) s 
             let result = foldl (Map.unionWith mergefunc) Map.empty maps 
-            putStr $ display (25,6) result 
+            let pixels = fmap (\x -> if x == 0 then ' ' else '*') result
+            putStr $ display (25,6) pixels
