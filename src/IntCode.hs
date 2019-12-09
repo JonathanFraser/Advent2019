@@ -1,14 +1,16 @@
 module IntCode where
 
-import Data.Array
+import Data.Map (Map)
+import Data.Maybe
+import qualified Data.Map as Map 
 import Control.Monad
 import Control.Monad.State.Lazy
 import qualified Data.Text as T
 import Control.Monad.Except
 
 
-data Machine = Machine {counter::Int, memory::Array Int Int} deriving Show
-data ParameterMode = Position | Immediate deriving (Eq,Show)
+data Machine = Machine {counter::Int, relbase::Int, memory::Map Int Int} deriving Show
+data ParameterMode = Position | Immediate | Relative deriving (Eq,Show)
 data StatusCode = Running | Waiting | Complete deriving (Eq,Show)
 
 type Operation a = StateT ([Int],Machine,[Int]) (Either String)  a
@@ -25,16 +27,31 @@ getPC = do
             (i,m,o) <- get 
             return $ counter m 
 
+adjRelbase :: Int -> Operation () 
+adjRelbase x = modify (\(i,m,o) -> (i,m {relbase = x + relbase m},o))
+
+getRelBase :: Operation Int
+getRelBase = do 
+            (_,m,_) <- get
+            return $ relbase m 
+
 setPC :: Int -> Operation () 
 setPC v = modify (\(i,m,o) -> (i,m {counter = v},o))
 
 readValue :: ParameterMode -> Int -> Operation Int 
 readValue Immediate loc = do 
                             (i,m,o) <- get
-                            return (memory m ! loc)
+                            let res = Map.lookup loc (memory m) :: Maybe Int
+                            case res of 
+                                    Nothing -> return 0
+                                    Just x -> return x 
 readValue Position loc = do 
                           l <- readValue Immediate loc 
                           readValue Immediate l
+readValue Relative loc = do 
+                            l <- readValue Immediate loc
+                            b <- getRelBase  
+                            readValue Immediate (l+b)
 
 readAdvance :: ParameterMode -> Operation Int 
 readAdvance mode = do pc <- getPC;v <- readValue mode pc; incPC; return v 
@@ -56,9 +73,13 @@ writeValue :: ParameterMode -> Int -> Int -> Operation ()
 writeValue Position loc val = do 
                             wl <- readValue Immediate loc
                             writeValue Immediate wl val 
+writeValue Relative loc val = do 
+                                wl <- readValue Immediate loc
+                                b <- getRelBase
+                                writeValue Immediate (wl+b) val 
 writeValue Immediate loc val = do 
                                 (i,m,o) <- get 
-                                let mn = m {memory = memory m // [(loc,val)]}
+                                let mn = m {memory = Map.insert loc val $ memory m}
                                 put (i,mn,o)
 
 writeAdvance :: ParameterMode -> Int -> Operation () 
@@ -68,7 +89,7 @@ p3 :: (Int -> Int -> Int) -> StatusCode -> Modes -> Operation StatusCode
 p3 fnc term (m1,m2,m3) = do 
                         v1 <- readAdvance m1 
                         v2 <- readAdvance m2
-                        if (m3 == Position) then return () else throwError "write must be a positional mode" 
+                        if (m3 /= Immediate) then return () else throwError "write must not be Immediate mode" 
                         writeAdvance m3 (fnc v1 v2) 
                         return term 
 
@@ -103,6 +124,8 @@ decodeMode v = case v of
                         return Position
                     1 ->
                         return Immediate 
+                    2 -> 
+                        return Relative
                     _ -> do 
                             pc <- getPC 
                             throwError ("unknown mode "++(show v)++" at pos "++(show pc))
@@ -127,7 +150,7 @@ step = do
                 3 -> 
                     inputOp m1 
                 4 -> 
-                    outputOp m2
+                    outputOp m1
                 5 -> 
                     do 
                         p1 <- readAdvance m1
@@ -144,6 +167,12 @@ step = do
                     lt m
                 8 -> 
                     eq m 
+                9 -> 
+                    do 
+                        p1 <- readAdvance m1
+                        adjRelbase p1
+                        return Running
+
                 99 ->
                     do decPC;return Complete 
                 r -> 
@@ -174,7 +203,8 @@ result = readValue Immediate 0
 fromList  :: [Int] -> Machine 
 fromList xs = Machine {
     counter = 0,
-    memory = listArray (0,length xs-1) xs}
+    relbase = 0,
+    memory = Map.fromList $ zip [0..] xs}
 
 fromString :: String -> Machine 
 fromString str = fromList (fmap (read . T.unpack) tkns) where

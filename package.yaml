@@ -24,6 +24,7 @@ dependencies:
 - array
 - text
 - mtl
+- containers
 
 library:
   source-dirs: src
@@ -104,3 +105,12 @@ executables:
       - advent2019
       - text
       - containers
+  day9:
+    main:                Main.hs
+    source-dirs:         Day9
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+      - advent2019
