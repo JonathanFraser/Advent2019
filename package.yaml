@@ -144,3 +144,13 @@ executables:
     dependencies:
       - linear
       - lens
+  day13:
+    main:                Main.hs
+    source-dirs:         Day13
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - advent2019
+    - containers
