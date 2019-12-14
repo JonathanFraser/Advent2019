@@ -154,3 +154,14 @@ executables:
     dependencies:
     - advent2019
     - containers
+  day14:
+    main:                Main.hs
+    source-dirs:         Day14
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - containers
+    - parsec 
+    - parsec3-numbers
